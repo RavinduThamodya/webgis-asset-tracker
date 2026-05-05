@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-shield-lock me-2"></i>Admin Dashboard</h5>
+            <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">Back to Map</a>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-pills mb-4 bg-light p-1 rounded-pill" style="width: fit-content;">
+                <li class="nav-item">
+                    <button class="nav-link active rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#pending">Pending Requests</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#current">All Approved Users</button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="pending">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light"><tr><th>Username</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                        <tbody>
+                            {% for u in users if not u.is_approved %}
+                            <tr>
+                                <td class="fw-bold">{{ u.username }}</td>
+                                <td><span class="badge bg-warning text-dark">Pending</span></td>
+                                <td class="text-end"><a href="/admin/action/approve/{{ u.id }}" class="btn btn-success btn-sm px-3 rounded-pill">Approve</a></td>
+                            </tr>
+                            {% else %}<tr><td colspan="3" class="text-center py-4 text-muted small">No pending registrations.</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="tab-pane fade" id="current">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light"><tr><th>Username</th><th>Role</th><th class="text-end">Action</th></tr></thead>
+                        <tbody>
+                            {% for u in users if u.is_approved %}
+                            <tr>
+                                <td class="fw-bold">{{ u.username }}</td>
+                                <td><span class="badge bg-info px-3 rounded-pill text-white">{{ u.role }}</span></td>
+                                <td class="text-end">
+                                    {% if u.id != current_user.id %}
+                                    <a href="/admin/action/delete/{{ u.id }}" class="btn btn-outline-danger btn-sm rounded-pill px-3" onclick="return confirm('Remove user permanently?')">Remove</a>
+                                    {% else %}<span class="text-muted small">Logged In</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

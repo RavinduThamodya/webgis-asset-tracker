@@ -1,0 +1,162 @@
+{% extends "layout.html" %}
+{% block head %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.4.0/dist/ol.css">
+    <style>
+        .wrapper { display: flex; height: calc(100vh - 62px); overflow: hidden; }
+        #sidebar { width: 320px; background: white; border-right: 1px solid #ddd; overflow-y: auto; }
+        #map { flex-grow: 1; position: relative; }
+        .modal { pointer-events: none; }
+        .modal-dialog { pointer-events: none; margin-right: 20px; margin-top: 20px; }
+        .modal-content { pointer-events: auto; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal-backdrop { display: none !important; }
+        .picking-mode #map { cursor: crosshair !important; outline: 5px solid #ffc107 inset; }
+        .ol-popup { background: white; padding: 12px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); min-width: 180px; }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="wrapper" id="mainWrapper">
+    <div id="sidebar" class="p-3 shadow-sm">
+        <h6 class="fw-bold mb-3 text-muted small">ASSET LIST</h6>
+        {% if current_user.role == 'admin' %}
+            <button class="btn btn-primary w-100 mb-4 rounded-pill py-2 fw-bold" onclick="openAddModal()">
+                <i class="bi bi-plus-circle me-2"></i>New Asset
+            </button>
+        {% endif %}
+        <div id="assetList" class="list-group list-group-flush"></div>
+    </div>
+    <div id="map"></div>
+    <div id="popup" class="ol-popup"><div id="popup-content"></div></div>
+</div>
+
+<div class="modal fade" id="assetModal" tabindex="-1">
+    <div class="modal-dialog modal-sm float-end">
+        <form id="assetForm" class="modal-content border-0">
+            <div class="modal-header bg-primary text-white py-2">
+                <h6 class="modal-title fw-bold" id="modalTitle">Register Asset</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="assetId">
+                <div class="mb-2">
+                    <label class="small fw-bold">Name</label>
+                    <input type="text" id="aName" class="form-control form-control-sm rounded-3" required>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold">Type</label>
+                    <select id="aType" class="form-select form-select-sm">
+                        <option value="Vehicle">Vehicle</option>
+                        <option value="Structure">Structure</option>
+                    </select>
+                </div>
+                <div class="bg-light p-2 rounded mb-3 border text-center">
+                    <button type="button" id="btnPicker" class="btn btn-sm btn-outline-primary w-100 fw-bold mb-2">
+                        <i class="bi bi-cursor-fill me-1"></i> Pick Point
+                    </button>
+                    <div class="row g-2">
+                        <div class="col-6 small text-muted">Lon: <input type="number" step="any" id="aLon" class="form-control form-control-sm" required></div>
+                        <div class="col-6 small text-muted">Lat: <input type="number" step="any" id="aLat" class="form-control form-control-sm" required></div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-sm rounded-pill fw-bold">Save Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ol@v7.4.0/dist/ol.js"></script>
+<script>
+    const source = new ol.source.Vector();
+    const overlay = new ol.Overlay({ element: document.getElementById('popup'), autoPan: true });
+    const map = new ol.Map({
+        target: 'map',
+        layers: [new ol.layer.Tile({ source: new ol.source.OSM() }), new ol.layer.Vector({ source, style: new ol.style.Style({
+            image: new ol.style.Circle({ radius: 8, fill: new ol.style.Fill({color: '#e74c3c'}), stroke: new ol.style.Stroke({color: '#fff', width: 2})})
+        })})],
+        overlays: [overlay],
+        view: new ol.View({ center: ol.proj.fromLonLat([79.88, 6.90]), zoom: 13 })
+    });
+
+    let isPicking = false;
+    const btnPicker = document.getElementById('btnPicker');
+    const wrapper = document.getElementById('mainWrapper');
+
+    btnPicker.onclick = () => {
+        isPicking = !isPicking;
+        wrapper.classList.toggle('picking-mode', isPicking);
+        btnPicker.classList.toggle('btn-warning', isPicking);
+    };
+
+    map.on('click', (e) => {
+        if (isPicking) {
+            const coords = ol.proj.toLonLat(e.coordinate);
+            document.getElementById('aLon').value = coords[0].toFixed(6);
+            document.getElementById('aLat').value = coords[1].toFixed(6);
+            isPicking = false;
+            wrapper.classList.remove('picking-mode');
+            btnPicker.classList.remove('btn-warning');
+        }
+    });
+
+    function load() {
+        fetch('/api/assets').then(r => r.json()).then(data => {
+            source.clear();
+            const feats = new ol.format.GeoJSON().readFeatures(data, {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
+            source.addFeatures(feats);
+            const list = document.getElementById('assetList'); list.innerHTML = '';
+            feats.forEach(f => {
+                list.innerHTML += `<div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                    <span class="small fw-medium"><i class="bi bi-geo-alt-fill text-danger me-2"></i>${f.get('name')}</span>
+                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" checked onchange="toggleF(${f.get('id')}, this.checked)"></div>
+                </div>`;
+            });
+        });
+    }
+
+    function toggleF(id, s) { source.getFeatures().forEach(f => { if(f.get('id') == id) f.setStyle(s ? null : new ol.style.Style({})); }); }
+
+    map.on('singleclick', e => {
+        const f = map.forEachFeatureAtPixel(e.pixel, f => f);
+        if(f && !isPicking) {
+            const props = f.getProperties();
+            const coords = ol.proj.toLonLat(f.getGeometry().getCoordinates());
+            let content = `<strong>${props.name}</strong><br><small>${props.asset_type}</small>`;
+            {% if current_user.role == 'admin' %}
+            content += `<br><button class="btn btn-xs btn-primary mt-2 py-0 px-2" style="font-size:10px;" onclick="openEdit(${props.id}, '${props.name}', '${props.asset_type}', ${coords[0]}, ${coords[1]})">Edit Asset</button>`;
+            {% endif %}
+            document.getElementById('popup-content').innerHTML = content;
+            overlay.setPosition(e.coordinate);
+        } else overlay.setPosition(undefined);
+    });
+
+    window.openAddModal = () => {
+        document.getElementById('assetId').value = '';
+        document.getElementById('modalTitle').innerText = "Register New Asset";
+        document.getElementById('assetForm').reset();
+        new bootstrap.Modal(document.getElementById('assetModal')).show();
+    };
+
+    window.openEdit = (id, name, type, lon, lat) => {
+        document.getElementById('assetId').value = id;
+        document.getElementById('modalTitle').innerText = "Edit Asset";
+        document.getElementById('aName').value = name;
+        document.getElementById('aType').value = type;
+        document.getElementById('aLon').value = lon;
+        document.getElementById('aLat').value = lat;
+        new bootstrap.Modal(document.getElementById('assetModal')).show();
+    };
+
+    document.getElementById('assetForm').onsubmit = (e) => {
+        e.preventDefault();
+        const id = document.getElementById('assetId').value;
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/assets/${id}` : '/api/assets';
+        fetch(url, {
+            method: method, headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: document.getElementById('aName').value, asset_type: document.getElementById('aType').value, longitude: document.getElementById('aLon').value, latitude: document.getElementById('aLat').value})
+        }).then(() => { location.reload(); });
+    };
+
+    load();
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="height: 85vh;">
+        <div class="col-md-4">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-person-plus-fill text-primary" style="font-size: 3rem;"></i>
+                        <h3 class="fw-bold mt-2">Create Account</h3>
+                        <p class="text-muted small">Join the Asset Tracking System</p>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}<div class="alert alert-info py-2 small">{{ messages[0] }}</div>{% endif %}
+                    {% endwith %}
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-person"></i></span>
+                                <input type="text" name="username" class="form-control bg-light border-start-0 rounded-end-pill" placeholder="Enter username" required>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="bi bi-lock"></i></span>
+                                <input type="password" name="password" class="form-control bg-light border-start-0 rounded-end-pill" placeholder="Create password" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 shadow-sm fw-bold">Register Now</button>
+                    </form>
+                    
+                    <div class="text-center mt-4 small text-muted">
+                        Already have an account? <a href="/login" class="text-decoration-none fw-bold">Login here</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
